@@ -1,0 +1,44 @@
+name: GHCR Debug — test registry credentials
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  ghcr-login-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify input secrets
+        run: |
+          echo "REGISTRY_USERNAME=${{ secrets.REGISTRY_USERNAME }}"
+          echo "REGISTRY_TOKEN_PRESENT=$(if [ -n \"${{ secrets.REGISTRY_TOKEN }}\" ]; then echo yes; else echo no; fi)"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Create tiny Dockerfile
+        run: |
+          cat > Dockerfile <<'EOF'
+          FROM busybox:latest
+          CMD ["true"]
+          EOF
+
+      - name: Build & push debug image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ secrets.REGISTRY_USERNAME }}/debug-test:action-${{ github.run_id }}
+
+      - name: Done
+        run: |
+          echo "Debug job finished. Check previous steps for auth/push details."
